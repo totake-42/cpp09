@@ -2,6 +2,7 @@
 #include <cctype>
 #include <stack>
 #include <stdexcept>
+#include <sstream>
 
 RPN::RPN()
 {
@@ -25,26 +26,23 @@ RPN &RPN::operator=(const RPN &other)
 int RPN::calculate(const std::string &expression) const
 {
 	std::stack<int> values;
+	std::istringstream stream(expression);
+	std::string token;
 
-	std::size_t i = 0;
-	while (i < expression.length())
+	while (stream >> token)
 	{
-		char token = expression[i];
+		if (token.length() != 1)
+			throw std::runtime_error("Invalid token in expression");
 
-		if (std::isspace(static_cast<unsigned char>(token)))
+		char value = token[0];
+
+		if (std::isdigit(static_cast<unsigned char>(value)))
 		{
-			i++;
+			values.push(value - '0');
 			continue;
 		}
 
-		if (std::isdigit(static_cast<unsigned char>(token)))
-		{
-			values.push(token - '0');
-			i++;
-			continue;
-		}
-
-		if (token != '+' && token != '-' && token != '*' && token != '/')
+		if (value != '+' && value != '-' && value != '*' && value != '/')
 			throw std::runtime_error("Invalid token in expression");
 
 		if (values.size() < 2)
@@ -56,22 +54,21 @@ int RPN::calculate(const std::string &expression) const
 		int left = values.top();
 		values.pop();
 
-		if (token == '/' && right == 0)
+		if (value == '/' && right == 0)
 			throw std::runtime_error("Division by zero");
 
 		int result = 0;
 
-		if (token == '+')
+		if (value == '+')
 			result = left + right;
-		else if (token == '-')
+		else if (value == '-')
 			result = left - right;
-		else if (token == '*')
+		else if (value == '*')
 			result = left * right;
-		else if (token == '/')
+		else if (value == '/')
 			result = left / right;
 
 		values.push(result);
-		i++;
 	}
 
 	if (values.size() != 1)
