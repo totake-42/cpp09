@@ -2,9 +2,37 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <cmath>   // For std::isnan and std::isinf
+#include <cerrno>  // For errno
+#include <cstdlib> // For std::strtod
+
+BitcoinExchange::BitcoinExchange()
+{
+}
+
+BitcoinExchange::BitcoinExchange(const BitcoinExchange &other)
+{
+	_database = other._database;
+}
+
+BitcoinExchange::~BitcoinExchange()
+{
+}
+
+BitcoinExchange &BitcoinExchange::operator=(const BitcoinExchange &other)
+{
+	if (this != &other)
+	{
+		_database = other._database;
+	}
+	return *this;
+}
 
 std::string BitcoinExchange::trimSpace(const std::string &str) const
 {
+	if (str.empty())
+		return "";
+
 	size_t start = 0;
 	size_t end = str.length() - 1;
 
@@ -56,13 +84,16 @@ bool BitcoinExchange::isValidDate(const std::string &date) const
 	return true;
 }
 
-bool BitcoinExchange::isValidRate(const std::string &rate_str, double &rate) const
+bool BitcoinExchange::isValidDouble(const std::string &str, double &value) const
 {
 	char *end;
 	errno = 0;
-	rate = std::strtod(rate_str.c_str(), &end);
+	value = std::strtod(str.c_str(), &end);
 
-	if (rate_str.empty() || *end != '\0' || errno != 0)
+	if (str.empty() || *end != '\0' || errno != 0)
+		return false;
+
+	if (std::isnan(value) || std::isinf(value))
 		return false;
 
 	return true;
@@ -73,20 +104,20 @@ bool BitcoinExchange::loadDatabase(const std::string &filename)
 	std::ifstream file(filename.c_str());
 	if (!file)
 	{
-		std::cout << "Error: could not open file." << std::endl;
+		std::cout << "Error: could not open database file." << std::endl;
 		return (false);
 	}
 
 	std::string line;
 	if (!std::getline(file, line))
 	{
-		std::cout << "Error: could not read the first line." << std::endl;
+		std::cout << "Error: could not read the first line of the database file." << std::endl;
 		return (false);
 	}
 
 	if (line != "date,exchange_rate")
 	{
-		std::cout << "Error: invalid first line." << std::endl;
+		std::cout << "Error: invalid first line of the database file." << std::endl;
 		return (false);
 	}
 
@@ -95,7 +126,7 @@ bool BitcoinExchange::loadDatabase(const std::string &filename)
 		size_t comma = line.find(',');
 		if (comma == std::string::npos)
 		{
-			std::cout << "Error: invalid line format." << std::endl;
+			std::cout << "Error: invalid line format in the database file." << std::endl;
 			return (false);
 		}
 
@@ -103,9 +134,9 @@ bool BitcoinExchange::loadDatabase(const std::string &filename)
 		std::string rate_str = trimSpace(line.substr(comma + 1));
 
 		double rate;
-		if (!isValidDate(date) || !isValidRate(rate_str, rate))
+		if (!isValidDate(date) || !isValidDouble(rate_str, rate) || rate < 0)
 		{
-			std::cout << "Error: invalid date or rate." << std::endl;
+			std::cout << "Error: invalid date or rate in the database file." << std::endl;
 			return (false);
 		}
 		_database[date] = rate;
@@ -122,10 +153,75 @@ bool BitcoinExchange::loadDatabase(const std::string &filename)
 
 bool BitcoinExchange::processInputFile(const std::string &filename)
 {
+	int emptyFlag = 0;
+
 	std::ifstream file(filename.c_str());
 	if (!file)
 	{
 		std::cout << "Error: could not open file." << std::endl;
 		return (false);
 	}
+
+	std::string line;
+	if (!std::getline(file, line))
+	{
+		std::cout << "Error: could not read the first line." << std::endl;
+		return (false);
+	}
+
+	if (line != "date | value")
+	{
+		std::cout << "Error: invalid first line." << std::endl;
+		return (false);
+	}
+
+	while (std::getline(file, line))
+	{
+		emptyFlag = 1;
+		size_t sep = line.find('|');
+		if (sep == std::string::npos)
+		{
+			std::cout << "Error: bad input => " << line << std::endl;
+			continue;
+		}
+		std::string date = trimSpace(line.substr(0, sep));
+		std::string value_str = trimSpace(line.substr(sep + 1));
+
+		double value;
+		if (!isValidDate(date) || !isValidDouble(value_str, value))
+		{
+			std::cout << "Error: bad input => " << line << std::endl;
+			continue;
+		}
+
+		if (value < 0)
+		{
+			std::cout << "Error: not a positive number." << std::endl;
+			continue;
+		}
+
+		if (value > 1000)
+		{
+			std::cout << "Error: too large a number." << std::endl;
+			continue;
+		}
+
+		std::map<std::string, double>::const_iterator it = _database.upper_bound(date);
+		if (it == _database.begin())
+		{
+			std::cout << "Error: bad input => " << line << std::endl;
+			continue;
+		}
+		--it;
+
+		std::cout << date << " => " << value << " = " << value * it->second << std::endl;
+	}
+
+	if (emptyFlag == 0)
+	{
+		std::cout << "Error: input file is empty." << std::endl;
+		return (false);
+	}
+
+	return (true);
 }
