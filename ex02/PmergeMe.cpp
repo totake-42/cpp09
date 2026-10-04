@@ -13,6 +13,51 @@ PmergeMe &PmergeMe::operator=(const PmergeMe &other) {
   return *this;
 }
 
+std::vector<size_t> PmergeMe::makeJacobsthalOrder(std::size_t size) const {
+  std::vector<size_t> order;
+  size_t previous = 1;
+  size_t current = 3;
+
+  while (order.size() < size) {
+    size_t value = current;
+
+    while (value > previous && order.size() < size) {
+      /*
+       * pending[0] is b2.
+       * b3, b2, b5, b4, b11, ...
+       */
+      order.push_back(value - 2);
+      --value;
+    }
+
+    size_t next = current + 2 * previous;
+    previous = current;
+    current = next;
+  }
+
+  return order;
+}
+
+void PmergeMe::insertSmall(std::vector<int> &result,
+                           const std::vector<int> &smalls) {
+  std::vector<size_t> order;
+  order = makeJacobsthalOrder(smalls.size());
+
+  for (size_t i = 0; i < order.size(); ++i) {
+    size_t smallsIndex = order[i];
+
+    if (smallsIndex >= smalls.size())
+      continue;
+
+    int value = smalls[smallsIndex];
+
+    std::vector<int>::iterator limit;
+    limit = std::lower_bound(result.begin(), result.end(), value);
+
+    result.insert(limit, value);
+  }
+}
+
 void PmergeMe::sortVector(std::vector<int> &values) {
   if (values.size() <= 1)
     return;
@@ -20,81 +65,73 @@ void PmergeMe::sortVector(std::vector<int> &values) {
   struct Pair {
     int small;
     int large;
+
+    Pair(int a, int b) {
+      if (a < b) {
+        small = a;
+        large = b;
+      } else {
+        small = b;
+        large = a;
+      }
+    }
   };
 
-  std::vector<Pair> pairs;
   bool hasOddValue = (values.size() % 2 != 0);
   int oddValue = 0;
-
-  std::size_t i = 0;
-  while (i + 1 < values.size()) {
-    Pair pair;
-
-    if (values[i] < values[i + 1]) {
-      pair.small = values[i];
-      pair.large = values[i + 1];
-    } else {
-      pair.small = values[i + 1];
-      pair.large = values[i];
-    }
-
-    pairs.push_back(pair);
-
-    i += 2;
-  }
-
   if (hasOddValue)
     oddValue = values[values.size() - 1];
 
-  std::vector<int> largeValues;
-
-  i = 0;
-  while (i < pairs.size()) {
-    largeValues.push_back(pairs[i].large);
-    i++;
+  // Make pairs vector
+  std::vector<Pair> pairs;
+  for (std::size_t i = 0; i + 1 < values.size(); i += 2) {
+    Pair pair(values[i], values[i + 1]);
+    pairs.push_back(pair);
   }
 
+  // Make large vlues vector
+  std::vector<Pair> pairs;
+  std::vector<int> largeValues;
+  for (std::size_t i = 0; i < pairs.size(); i++) {
+    largeValues.push_back(pairs[i].large);
+  }
+
+  // recursive
   sortVector(largeValues);
 
-  std::vector<bool> used(pairs.size(), false);
+  // Sort pairs depends on large values
+  std::vector<bool> used(pairs.size(),
+                         false); // Because of duplicate values included
   std::vector<Pair> sortedPairs;
-
-  i = 0;
-  while (i < largeValues.size()) {
-    std::size_t j = 0;
-    while (j < pairs.size()) {
-      if (!used[j] && pairs[j].large == largeValues[i]) {
+  for (std::size_t i = 0; i < largeValues.size(); i++) {
+    for (std::size_t j = 0; j < pairs.size(); j++) {
+      if (pairs[j].large == largeValues[i] && !used[j]) {
         sortedPairs.push_back(pairs[j]);
         used[j] = true;
         break;
       }
-      j++;
     }
+  }
+
+  std::vector<int> result;
+  std::vector<int> smalls;
+  result.push_back(sortedPairs[0].small);
+  result.push_back(sortedPairs[0].large);
+  for (std::size_t i = 1; i < sortedPairs.size(); i++) {
+    result.push_back(sortedPairs[i].large);
+    smalls.push_back(sortedPairs[i].small);
     i++;
   }
 
-  std::vector<int> chain;
-  std::vector<int> pending;
-
-  chain.push_back(sortedPairs[0].small);
-  chain.push_back(sortedPairs[0].large);
-
-  i = 1;
-  while (i < sortedPairs.size()) {
-    chain.push_back(sortedPairs[i].large);
-    pending.push_back(sortedPairs[i].small);
-    i++;
-  }
-
-  insertPending(chain, pending);
+  insertSmall(result, smalls);
 
   if (hasOddValue) {
     std::vector<int>::iterator position;
-    position = std::lower_bound(chain.begin(), chain.end(), oddValue);
-    chain.insert(position, oddValue);
+    position = std::lower_bound(result.begin(), result.end(), oddValue);
+    result.insert(position, oddValue);
   }
 
-  values = chain;
+  values = result;
 }
 
 void PmergeMe::run(const std::vector<int> &input) {
