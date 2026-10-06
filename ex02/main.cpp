@@ -1,6 +1,7 @@
 #include "PmergeMe.hpp"
 #include <cerrno>   // For errno
 #include <climits>  // For INT_MAX
+#include <cstdlib>  // For std::strtol
 #include <iostream> // For std::cerr and std::endl
 #include <vector>   // For std::vector
 

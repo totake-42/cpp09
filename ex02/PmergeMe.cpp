@@ -1,6 +1,9 @@
 #include "PmergeMe.hpp"
+#include <algorithm>
 #include <ctime>    // For std::clock_t and std::clock
 #include <iostream> // For std::cout and std::endl
+
+static const std::size_t NO_PAIR = static_cast<std::size_t>(-1);
 
 PmergeMe::PmergeMe() {}
 
@@ -13,69 +16,99 @@ PmergeMe &PmergeMe::operator=(const PmergeMe &other) {
   return *this;
 }
 
-std::vector<size_t> PmergeMe::makeJacobsthalOrder(std::size_t size) const {
-  std::vector<size_t> order;
-  size_t previous = 1;
-  size_t current = 3;
+std::vector<std::size_t> PmergeMe::makeIndexOrder(std::size_t size) const {
+  /*
+   * We use Jacobsthal sequence
+   * J₀ = 0 and J₁ = 1
+   * Jn = Jn-1 + 2 * jn-2
+   * 0, 1, 1, 3, 5, 11, 21, 43, 85, 171, 341
+   * 1, 3, 5, 11, 21, 43, 85, 171, 341
+   * Example:
+   * smalls = b2, b3, b4, b5
+   * ↓
+   * result = 3, 2, 5, 4
+   * ↓
+   * mean   = b3, b2, b5, b4
+   * ↓
+   * indexOrder = [1, 0, 3, 2]
+   */
+  std::vector<std::size_t> indexOrder;
+  std::size_t previous = 1;
+  std::size_t current = 3;
 
-  while (order.size() < size) {
-    size_t value = current;
+  while (indexOrder.size() < size) {
+    std::size_t value = current;
+    // Example: size=7, size+1= 8, 8-2=6, 6 is max index.
+    if (value > size + 1)
+      value = size + 1;
 
-    while (value > previous && order.size() < size) {
-      /*
-       * pending[0] is b2.
-       * b3, b2, b5, b4, b11, ...
-       */
-      order.push_back(value - 2);
+    // 0: previous = 1, value = 3 → [3, 2]
+    // 1: previous = 3, value = 5 → [3, 2, 5, 4]
+    while (value > previous && indexOrder.size() < size) {
+      // We have to - 2 to change the index order because 2 is the minimum value
+      // [3, 2, 5, 4] → [1, 0, 3, 2]
+      indexOrder.push_back(value - 2);
       --value;
     }
 
-    size_t next = current + 2 * previous;
+    // Jn = Jn-1 + 2 * jn-2
+    std::size_t next = current + 2 * previous;
     previous = current;
     current = next;
   }
 
-  return order;
+  return indexOrder;
 }
 
-void PmergeMe::insertSmall(std::vector<int> &result,
-                           const std::vector<int> &smalls) {
-  std::vector<size_t> order;
-  order = makeJacobsthalOrder(smalls.size());
+struct Pair {
+  int small;
+  int large;
 
-  for (size_t i = 0; i < order.size(); ++i) {
-    size_t smallsIndex = order[i];
+  Pair(int a, int b) {
+    if (a < b) {
+      small = a;
+      large = b;
+    } else {
+      small = b;
+      large = a;
+    }
+  }
+};
+
+void PmergeMe::insertSmall(std::vector<int> &larges,
+                           std::vector<std::size_t> &largePairIds,
+                           const std::vector<int> &smalls) {
+  std::vector<std::size_t> indexOrder;
+  indexOrder = makeIndexOrder(smalls.size());
+
+  for (std::size_t i = 0; i < indexOrder.size(); ++i) {
+    std::size_t smallsIndex = indexOrder[i];
 
     if (smallsIndex >= smalls.size())
       continue;
 
     int value = smalls[smallsIndex];
+    std::size_t pairId = smallsIndex + 1;
+    std::size_t partnerIndex = 0;
+    while (partnerIndex < largePairIds.size() &&
+           largePairIds[partnerIndex] != pairId)
+      ++partnerIndex;
+    if (partnerIndex == largePairIds.size())
+      continue;
 
     std::vector<int>::iterator limit;
-    limit = std::lower_bound(result.begin(), result.end(), value);
+    limit =
+        std::lower_bound(larges.begin(), larges.begin() + partnerIndex, value);
 
-    result.insert(limit, value);
+    std::size_t insertIndex = static_cast<std::size_t>(limit - larges.begin());
+    larges.insert(limit, value);
+    largePairIds.insert(largePairIds.begin() + insertIndex, NO_PAIR);
   }
 }
 
 void PmergeMe::sortVector(std::vector<int> &values) {
   if (values.size() <= 1)
     return;
-
-  struct Pair {
-    int small;
-    int large;
-
-    Pair(int a, int b) {
-      if (a < b) {
-        small = a;
-        large = b;
-      } else {
-        small = b;
-        large = a;
-      }
-    }
-  };
 
   bool hasOddValue = (values.size() % 2 != 0);
   int oddValue = 0;
@@ -90,7 +123,6 @@ void PmergeMe::sortVector(std::vector<int> &values) {
   }
 
   // Make large vlues vector
-  std::vector<Pair> pairs;
   std::vector<int> largeValues;
   for (std::size_t i = 0; i < pairs.size(); i++) {
     largeValues.push_back(pairs[i].large);
@@ -113,25 +145,28 @@ void PmergeMe::sortVector(std::vector<int> &values) {
     }
   }
 
-  std::vector<int> result;
+  std::vector<int> larges;
+  std::vector<std::size_t> largePairIds;
   std::vector<int> smalls;
-  result.push_back(sortedPairs[0].small);
-  result.push_back(sortedPairs[0].large);
+  larges.push_back(sortedPairs[0].small);
+  largePairIds.push_back(NO_PAIR);
+  larges.push_back(sortedPairs[0].large);
+  largePairIds.push_back(0);
   for (std::size_t i = 1; i < sortedPairs.size(); i++) {
-    result.push_back(sortedPairs[i].large);
+    larges.push_back(sortedPairs[i].large);
+    largePairIds.push_back(i);
     smalls.push_back(sortedPairs[i].small);
-    i++;
   }
 
-  insertSmall(result, smalls);
+  insertSmall(larges, largePairIds, smalls);
 
   if (hasOddValue) {
     std::vector<int>::iterator position;
-    position = std::lower_bound(result.begin(), result.end(), oddValue);
-    result.insert(position, oddValue);
+    position = std::lower_bound(larges.begin(), larges.end(), oddValue);
+    larges.insert(position, oddValue);
   }
 
-  values = result;
+  values = larges;
 }
 
 void PmergeMe::run(const std::vector<int> &input) {
@@ -149,7 +184,7 @@ void PmergeMe::run(const std::vector<int> &input) {
   vectorTime = static_cast<double>(end - start) / CLOCKS_PER_SEC * 1000000.0;
 
   start = std::clock();
-  sortDeque(dequeValues);
+  // sortDeque(dequeValues);
   end = std::clock();
   dequeTime = static_cast<double>(end - start) / CLOCKS_PER_SEC * 1000000.0;
 
