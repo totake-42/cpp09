@@ -1,9 +1,10 @@
 #include "PmergeMe.hpp"
-#include <cerrno>   // For errno
-#include <climits>  // For INT_MAX
-#include <cstdlib>  // For std::strtol
-#include <iostream> // For std::cerr and std::endl
-#include <vector>   // For std::vector
+#include <cerrno>    // For errno
+#include <climits>   // For INT_MAX
+#include <cstdlib>   // For std::strtol
+#include <iostream>  // For std::cerr and std::endl
+#include <vector>    // For std::vector
+#include <algorithm> // For std::find
 
 static bool parsePositiveInteger(const char *str, int &value)
 {
@@ -38,7 +39,13 @@ int main(int argc, char **argv)
 
     if (!parsePositiveInteger(argv[i], value))
     {
-      std::cerr << "Error" << std::endl;
+      std::cerr << "Error: Invalid input" << std::endl;
+      return (1);
+    }
+
+    if (std::find(input.begin(), input.end(), value) != input.end())
+    {
+      std::cerr << "Error: Duplicate value" << std::endl;
       return (1);
     }
 
@@ -57,10 +64,9 @@ int main(int argc, char **argv)
   std::cout << std::endl;
 
   PmergeMe sorter;
-  std::vector<int> vectorValues;
-  std::deque<int> dequeValues;
 
-  sorter.run(input);
+  if (sorter.run(input) == false)
+    return (1);
 
   return (0);
 }

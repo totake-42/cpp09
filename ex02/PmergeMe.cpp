@@ -1,7 +1,9 @@
 #include "PmergeMe.hpp"
 #include <algorithm>
-#include <ctime>    // For std::clock_t and std::clock
+#include <cstdio>   // For std::perror
+#include <time.h>   // For clock_gettime and CLOCK_MONOTONIC
 #include <iostream> // For std::cout and std::endl
+#include <iomanip>  // For std::setprecision
 
 static const std::size_t NO_PAIR = static_cast<std::size_t>(-1);
 
@@ -254,26 +256,17 @@ void PmergeMe::sortVector(std::vector<int> &values)
    * Rebuild the original pairs in the same order
    * as the sorted large values.
    *
-   * We use 'used' because large values can be duplicated.
-   *
-   * Example:
-   * pairs       = [(3, 6), (1, 5), (2, 6)]
-   * largeValues = [6, 6, 5]
-   *
-   * The two pairs containing 6 must be matched
-   * with different elements.
+   * Input values are unique, so each large value
+   * identifies exactly one pair.
    */
-  std::vector<bool> used(pairs.size(),
-                         false); // Because of duplicate values included
   std::vector<Pair> sortedPairs;
   for (std::size_t i = 0; i < largeValues.size(); i++)
   {
     for (std::size_t j = 0; j < pairs.size(); j++)
     {
-      if (pairs[j].large == largeValues[i] && !used[j])
+      if (pairs[j].large == largeValues[i])
       {
         sortedPairs.push_back(pairs[j]);
-        used[j] = true;
         break;
       }
     }
@@ -339,17 +332,119 @@ void PmergeMe::sortVector(std::vector<int> &values)
   values = larges;
 }
 
-void PmergeMe::run(const std::vector<int> &input)
+std::size_t PmergeMe::findPartner(
+    const std::deque<std::size_t> &pairIds,
+    std::size_t pairId) const
+{
+  std::size_t i = 0;
+
+  while (i < pairIds.size())
+  {
+    if (pairIds[i] == pairId)
+      return i;
+    ++i;
+  }
+
+  return NO_PAIR;
+}
+
+void PmergeMe::insertSmall(std::deque<int> &larges,
+                           std::deque<std::size_t> &pairIds,
+                           const std::deque<int> &smalls)
+{
+  if (smalls.empty())
+    return;
+
+  std::vector<std::size_t> indexOrder;
+  indexOrder = makeIndexOrder(smalls.size() - 1);
+
+  for (std::size_t i = 0; i < indexOrder.size(); i++)
+  {
+    std::size_t smallsIndex = indexOrder[i];
+    int value = smalls[smallsIndex];
+    std::size_t pairId = smallsIndex;
+    std::size_t partnerIndex = findPartner(pairIds, pairId);
+
+    std::deque<int>::iterator limit;
+    limit =
+        std::lower_bound(larges.begin(), larges.begin() + partnerIndex, value);
+
+    std::size_t insertIndex = static_cast<std::size_t>(limit - larges.begin());
+    larges.insert(limit, value);
+    pairIds.insert(pairIds.begin() + insertIndex, NO_PAIR);
+  }
+}
+
+void PmergeMe::sortDeque(std::deque<int> &values)
+{
+  if (values.size() <= 1)
+    return;
+
+  bool hasOddValue = (values.size() % 2 != 0);
+  int oddValue = 0;
+  if (hasOddValue)
+    oddValue = values[values.size() - 1];
+
+  std::deque<Pair> pairs;
+  for (std::size_t i = 0; i + 1 < values.size(); i += 2)
+  {
+    Pair pair(values[i], values[i + 1]);
+    pairs.push_back(pair);
+  }
+
+  std::deque<int> largeValues;
+  for (std::size_t i = 0; i < pairs.size(); i++)
+  {
+    largeValues.push_back(pairs[i].large);
+  }
+
+  sortDeque(largeValues);
+
+  // Unique input values identify each original pair by its large value.
+  std::deque<Pair> sortedPairs;
+  for (std::size_t i = 0; i < largeValues.size(); i++)
+  {
+    for (std::size_t j = 0; j < pairs.size(); j++)
+    {
+      if (pairs[j].large == largeValues[i])
+      {
+        sortedPairs.push_back(pairs[j]);
+        break;
+      }
+    }
+  }
+
+  std::deque<int> larges;
+  std::deque<std::size_t> pairIds;
+  std::deque<int> smalls;
+  for (std::size_t i = 0; i < sortedPairs.size(); i++)
+  {
+    larges.push_back(sortedPairs[i].large);
+    pairIds.push_back(i);
+    smalls.push_back(sortedPairs[i].small);
+  }
+
+  insertSmall(larges, pairIds, smalls);
+
+  if (hasOddValue)
+  {
+    std::deque<int>::iterator position;
+    position = std::lower_bound(larges.begin(), larges.end(), oddValue);
+    larges.insert(position, oddValue);
+  }
+
+  values = larges;
+}
+
+bool PmergeMe::run(const std::vector<int> &input)
 {
   std::vector<int> vectorValues(input.begin(), input.end());
   std::deque<int> dequeValues(input.begin(), input.end());
 
-  std::clock_t start;
-  std::clock_t end;
+  struct timespec start;
+  struct timespec end;
   double vectorTime;
   double dequeTime;
-
-  start = std::clock();
 
   /*
    * The sorting process for the vector is as follows:
@@ -362,28 +457,75 @@ void PmergeMe::run(const std::vector<int> &input)
    * 6. Insert all small values using the Jacobsthal order.
    * 7. If there is an odd value, insert it normally.
    */
-  sortVector(vectorValues);
 
-  end = std::clock();
-  vectorTime = static_cast<double>(end - start) / CLOCKS_PER_SEC * 1000000.0;
-
-  start = std::clock();
-  // sortDeque(dequeValues);
-  end = std::clock();
-  dequeTime = static_cast<double>(end - start) / CLOCKS_PER_SEC * 1000000.0;
-
-  std::cout << "After: ";
-  std::size_t i = 0;
-  while (i < vectorValues.size())
+  /*
+   * CLOCK_MONOTONIC measures elapsed time without wall-clock adjustments.
+   * Convert the seconds and nanoseconds difference to microseconds.
+   */
+  if (clock_gettime(CLOCK_MONOTONIC, &start) != 0)
   {
-    std::cout << " " << vectorValues[i];
-    i++;
+    std::perror("Error: Failed to start vector timing");
+    return (false);
   }
-  std::cout << std::endl;
+  sortVector(vectorValues);
+  if (clock_gettime(CLOCK_MONOTONIC, &end) != 0)
+  {
+    std::perror("Error: Failed to end vector timing");
+    return (false);
+  }
+  vectorTime = static_cast<double>(end.tv_sec - start.tv_sec) * 1000000.0
+               + static_cast<double>(end.tv_nsec - start.tv_nsec) / 1000.0;
 
-  std::cout << "Time to process a range of " << input.size()
+  if (clock_gettime(CLOCK_MONOTONIC, &start) != 0)
+  {
+    std::perror("Error: Failed to start deque timing");
+    return (false);
+  }
+  sortDeque(dequeValues);
+  if (clock_gettime(CLOCK_MONOTONIC, &end) != 0)
+  {
+    std::perror("Error: Failed to end deque timing");
+    return (false);
+  }
+  dequeTime = static_cast<double>(end.tv_sec - start.tv_sec) * 1000000.0
+              + static_cast<double>(end.tv_nsec - start.tv_nsec) / 1000.0;
+
+  // Verify that the sorted vector and deque have the same values
+  if (vectorValues.size() != dequeValues.size())
+  {
+    std::cerr << "Error: Vector and deque have different sizes" << std::endl;
+    return (false);
+  }
+  for (std::size_t i = 0; i < vectorValues.size(); i++)
+  {
+    if (i != 0 && vectorValues[i - 1] > vectorValues[i])
+    {
+      std::cerr << "Error: Vector is not sorted" << std::endl;
+      return (false);
+    }
+    if (i != 0 && dequeValues[i - 1] > dequeValues[i])
+    {
+      std::cerr << "Error: Deque is not sorted" << std::endl;
+      return (false);
+    }
+    if (vectorValues[i] != dequeValues[i])
+    {
+      std::cerr << "Error: Vector and deque have different values" << std::endl;
+      return (false);
+    }
+  }
+
+  // Print the sorted vector and time information
+  std::cout << "After: ";
+  for (std::size_t i = 0; i < vectorValues.size(); i++)
+    std::cout << " " << vectorValues[i];
+  std::cout << std::endl;
+  std::cout << std::fixed << std::setprecision(5);
+  std::cout << "Time to process a range of " << vectorValues.size()
             << " elements with std::vector: " << vectorTime << " us"
             << std::endl;
-  std::cout << "Time to process a range of " << input.size()
-            << " elements with std::deque: " << dequeTime << " us" << std::endl;
+  std::cout << "Time to process a range of " << dequeValues.size()
+            << " elements with std::deque : " << dequeTime << " us" << std::endl;
+
+  return (true);
 }

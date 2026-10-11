@@ -16,6 +16,12 @@ private:
   void insertSmall(std::vector<int> &larges,
                    std::vector<std::size_t> &pairIds,
                    const std::vector<int> &smalls);
+  std::size_t findPartner(
+      const std::deque<std::size_t> &pairIds,
+      std::size_t pairId) const;
+  void insertSmall(std::deque<int> &larges,
+                   std::deque<std::size_t> &pairIds,
+                   const std::deque<int> &smalls);
   void sortVector(std::vector<int> &values);
   void sortDeque(std::deque<int> &values);
 
@@ -26,7 +32,7 @@ public:
 
   PmergeMe &operator=(const PmergeMe &other);
 
-  void run(const std::vector<int> &input);
+  bool run(const std::vector<int> &input);
 };
 
 #endif
