@@ -156,7 +156,7 @@ void PmergeMe::insertSmall(std::vector<int> &larges,
     std::size_t partnerIndex = findPartner(largePairIds, pairId);
 
     /*
-     * Because small < large within each pair,
+     * Because small <= large within each pair,
      * value must be inserted before its partner large value.
      *
      * Therefore, we only search the range before partnerIndex.
@@ -239,16 +239,19 @@ void PmergeMe::sortVector(std::vector<int> &values) {
    * Build pair IDs and small values in the same order
    * as the sorted large values.
    *
-   * Input values are unique, so each large value
-   * identifies exactly one pair.
+   * Equal large values may belong to different pairs.
+   * Mark each matched pair as used so every sorted large value keeps
+   * exactly one corresponding small value.
    */
   std::vector<std::size_t> largePairIds;
   std::vector<int> smalls;
+  std::vector<bool> usedPairs(pairs.size(), false);
   for (std::size_t i = 0; i < larges.size(); i++) {
     for (std::size_t j = 0; j < pairs.size(); j++) {
-      if (pairs[j].large == larges[i]) {
+      if (!usedPairs[j] && pairs[j].large == larges[i]) {
         largePairIds.push_back(i);
         smalls.push_back(pairs[j].small);
+        usedPairs[j] = true;
         break;
       }
     }
@@ -339,14 +342,15 @@ void PmergeMe::sortDeque(std::deque<int> &values) {
 
   sortDeque(larges);
 
-  // Unique input values identify each original pair by its large value.
   std::deque<std::size_t> largePairIds;
   std::deque<int> smalls;
+  std::vector<bool> usedPairs(pairs.size(), false);
   for (std::size_t i = 0; i < larges.size(); i++) {
     for (std::size_t j = 0; j < pairs.size(); j++) {
-      if (pairs[j].large == larges[i]) {
+      if (!usedPairs[j] && pairs[j].large == larges[i]) {
         largePairIds.push_back(i);
         smalls.push_back(pairs[j].small);
+        usedPairs[j] = true;
         break;
       }
     }

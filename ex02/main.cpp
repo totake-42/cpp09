@@ -1,5 +1,4 @@
 #include "PmergeMe.hpp"
-#include <algorithm> // For std::find
 #include <cerrno>    // For errno
 #include <climits>   // For INT_MAX
 #include <cstdlib>   // For std::strtol
@@ -34,11 +33,6 @@ int main(int argc, char **argv) {
     int value;
 
     if (!parsePositiveInteger(argv[i], value)) {
-      std::cerr << "Error" << std::endl;
-      return (1);
-    }
-
-    if (std::find(input.begin(), input.end(), value) != input.end()) {
       std::cerr << "Error" << std::endl;
       return (1);
     }
