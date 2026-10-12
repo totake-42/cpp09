@@ -115,14 +115,14 @@ struct Pair
 };
 
 std::size_t PmergeMe::findPartner(
-    const std::vector<std::size_t> &pairIds,
+    const std::vector<std::size_t> &largePairIds,
     std::size_t pairId) const
 {
   std::size_t i = 0;
 
-  while (i < pairIds.size())
+  while (i < largePairIds.size())
   {
-    if (pairIds[i] == pairId)
+    if (largePairIds[i] == pairId)
       return i;
     ++i;
   }
@@ -131,7 +131,7 @@ std::size_t PmergeMe::findPartner(
 }
 
 void PmergeMe::insertSmall(std::vector<int> &larges,
-                           std::vector<std::size_t> &pairIds,
+                           std::vector<std::size_t> &largePairIds,
                            const std::vector<int> &smalls)
 {
   if (smalls.empty())
@@ -167,7 +167,7 @@ void PmergeMe::insertSmall(std::vector<int> &larges,
      * Find where that partner large value is currently located.
      */
     std::size_t pairId = smallsIndex;
-    std::size_t partnerIndex = findPartner(pairIds, pairId);
+    std::size_t partnerIndex = findPartner(largePairIds, pairId);
 
     /*
      * Because small < large within each pair,
@@ -182,7 +182,7 @@ void PmergeMe::insertSmall(std::vector<int> &larges,
     /*
      * Save the position where the small value will be inserted.
      *
-     * larges and pairIds must always have the same size
+     * larges and largePairIds must always have the same size
      * and correspond to each other.
      */
     std::size_t insertIndex = static_cast<std::size_t>(limit - larges.begin());
@@ -194,7 +194,7 @@ void PmergeMe::insertSmall(std::vector<int> &larges,
      * The inserted value is a small value, not a large value,
      * so it does not have a large-value pair ID.
      */
-    pairIds.insert(pairIds.begin() + insertIndex, NO_PAIR);
+    largePairIds.insert(largePairIds.begin() + insertIndex, NO_PAIR);
   }
 }
 
@@ -236,74 +236,42 @@ void PmergeMe::sortVector(std::vector<int> &values)
    * Example:
    * pairs = [(3, 6), (1, 5), (2, 4)]
    *
-   * largeValues = [6, 5, 4]
+   * larges = [6, 5, 4]
    */
-  std::vector<int> largeValues;
+  std::vector<int> larges;
   for (std::size_t i = 0; i < pairs.size(); i++)
   {
-    largeValues.push_back(pairs[i].large);
+    larges.push_back(pairs[i].large);
   }
 
   /*
    * Recursively sort the large values.
    *
    * After this:
-   * largeValues is sorted.
+   * larges is sorted.
    */
-  sortVector(largeValues);
+  sortVector(larges);
 
   /*
-   * Rebuild the original pairs in the same order
+   * Build pair IDs and small values in the same order
    * as the sorted large values.
    *
    * Input values are unique, so each large value
    * identifies exactly one pair.
    */
-  std::vector<Pair> sortedPairs;
-  for (std::size_t i = 0; i < largeValues.size(); i++)
+  std::vector<std::size_t> largePairIds;
+  std::vector<int> smalls;
+  for (std::size_t i = 0; i < larges.size(); i++)
   {
     for (std::size_t j = 0; j < pairs.size(); j++)
     {
-      if (pairs[j].large == largeValues[i])
+      if (pairs[j].large == larges[i])
       {
-        sortedPairs.push_back(pairs[j]);
+        largePairIds.push_back(i);
+        smalls.push_back(pairs[j].small);
         break;
       }
     }
-  }
-
-  /*
-   * Build three parallel vectors from sortedPairs:
-   *
-   * larges:
-   *   sorted large values
-   *
-   * pairIds:
-   *   ID of the pair that each large value belongs to
-   *
-   * smalls:
-   *   small value belonging to each pair
-   *
-   * Example:
-   * sortedPairs = [(3, 4), (1, 5), (2, 6)]
-   *
-   * larges  = [4, 5, 6]
-   * pairIds = [0, 1, 2]
-   * smalls  = [3, 1, 2]
-   *
-   * So:
-   * pair 0 -> small 3 / large 4
-   * pair 1 -> small 1 / large 5
-   * pair 2 -> small 2 / large 6
-   */
-  std::vector<int> larges;
-  std::vector<std::size_t> pairIds;
-  std::vector<int> smalls;
-  for (std::size_t i = 0; i < sortedPairs.size(); i++)
-  {
-    larges.push_back(sortedPairs[i].large);
-    pairIds.push_back(i);
-    smalls.push_back(sortedPairs[i].small);
   }
 
   /*
@@ -312,7 +280,7 @@ void PmergeMe::sortVector(std::vector<int> &values)
    * Each small value is inserted only before
    * the large value from the same pair.
    */
-  insertSmall(larges, pairIds, smalls);
+  insertSmall(larges, largePairIds, smalls);
 
   /*
    * If there was an odd value, insert it normally.
@@ -327,20 +295,20 @@ void PmergeMe::sortVector(std::vector<int> &values)
   }
 
   /*
-   * larges now contains the completely sorted result.
+   * larges now contains all values in sorted order.
    */
   values = larges;
 }
 
 std::size_t PmergeMe::findPartner(
-    const std::deque<std::size_t> &pairIds,
+    const std::deque<std::size_t> &largePairIds,
     std::size_t pairId) const
 {
   std::size_t i = 0;
 
-  while (i < pairIds.size())
+  while (i < largePairIds.size())
   {
-    if (pairIds[i] == pairId)
+    if (largePairIds[i] == pairId)
       return i;
     ++i;
   }
@@ -349,7 +317,7 @@ std::size_t PmergeMe::findPartner(
 }
 
 void PmergeMe::insertSmall(std::deque<int> &larges,
-                           std::deque<std::size_t> &pairIds,
+                           std::deque<std::size_t> &largePairIds,
                            const std::deque<int> &smalls)
 {
   if (smalls.empty())
@@ -363,7 +331,7 @@ void PmergeMe::insertSmall(std::deque<int> &larges,
     std::size_t smallsIndex = indexOrder[i];
     int value = smalls[smallsIndex];
     std::size_t pairId = smallsIndex;
-    std::size_t partnerIndex = findPartner(pairIds, pairId);
+    std::size_t partnerIndex = findPartner(largePairIds, pairId);
 
     std::deque<int>::iterator limit;
     limit =
@@ -371,7 +339,7 @@ void PmergeMe::insertSmall(std::deque<int> &larges,
 
     std::size_t insertIndex = static_cast<std::size_t>(limit - larges.begin());
     larges.insert(limit, value);
-    pairIds.insert(pairIds.begin() + insertIndex, NO_PAIR);
+    largePairIds.insert(largePairIds.begin() + insertIndex, NO_PAIR);
   }
 }
 
@@ -392,39 +360,31 @@ void PmergeMe::sortDeque(std::deque<int> &values)
     pairs.push_back(pair);
   }
 
-  std::deque<int> largeValues;
+  std::deque<int> larges;
   for (std::size_t i = 0; i < pairs.size(); i++)
   {
-    largeValues.push_back(pairs[i].large);
+    larges.push_back(pairs[i].large);
   }
 
-  sortDeque(largeValues);
+  sortDeque(larges);
 
   // Unique input values identify each original pair by its large value.
-  std::deque<Pair> sortedPairs;
-  for (std::size_t i = 0; i < largeValues.size(); i++)
+  std::deque<std::size_t> largePairIds;
+  std::deque<int> smalls;
+  for (std::size_t i = 0; i < larges.size(); i++)
   {
     for (std::size_t j = 0; j < pairs.size(); j++)
     {
-      if (pairs[j].large == largeValues[i])
+      if (pairs[j].large == larges[i])
       {
-        sortedPairs.push_back(pairs[j]);
+        largePairIds.push_back(i);
+        smalls.push_back(pairs[j].small);
         break;
       }
     }
   }
 
-  std::deque<int> larges;
-  std::deque<std::size_t> pairIds;
-  std::deque<int> smalls;
-  for (std::size_t i = 0; i < sortedPairs.size(); i++)
-  {
-    larges.push_back(sortedPairs[i].large);
-    pairIds.push_back(i);
-    smalls.push_back(sortedPairs[i].small);
-  }
-
-  insertSmall(larges, pairIds, smalls);
+  insertSmall(larges, largePairIds, smalls);
 
   if (hasOddValue)
   {
@@ -452,10 +412,9 @@ bool PmergeMe::run(const std::vector<int> &input)
    * 1. Form pairs from the input values.
    * 2. Extract the large values from each pair.
    * 3. Recursively sort the large values.
-   * 4. Rebuild the sorted pairs.
-   * 5. Create three parallel vectors: larges, pairIds, and smalls.
-   * 6. Insert all small values using the Jacobsthal order.
-   * 7. If there is an odd value, insert it normally.
+   * 4. Build largePairIds and smalls by matching the sorted large values to pairs.
+   * 5. Insert all small values into larges using the Jacobsthal order.
+   * 6. If there is an odd value, insert it normally.
    */
 
   /*
