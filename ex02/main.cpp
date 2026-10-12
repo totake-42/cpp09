@@ -1,13 +1,12 @@
 #include "PmergeMe.hpp"
+#include <algorithm> // For std::find
 #include <cerrno>    // For errno
 #include <climits>   // For INT_MAX
 #include <cstdlib>   // For std::strtol
 #include <iostream>  // For std::cerr and std::endl
 #include <vector>    // For std::vector
-#include <algorithm> // For std::find
 
-static bool parsePositiveInteger(const char *str, int &value)
-{
+static bool parsePositiveInteger(const char *str, int &value) {
   char *end;
   long parsed;
 
@@ -23,29 +22,24 @@ static bool parsePositiveInteger(const char *str, int &value)
   return true;
 }
 
-int main(int argc, char **argv)
-{
-  if (argc <= 1 || argc >= 5001)
-  {
+int main(int argc, char **argv) {
+  if (argc <= 1 || argc >= 5001) {
     std::cerr << "Error" << std::endl;
     return (1);
   }
 
   std::vector<int> input;
   std::size_t i = 1;
-  while (i < static_cast<std::size_t>(argc))
-  {
+  while (i < static_cast<std::size_t>(argc)) {
     int value;
 
-    if (!parsePositiveInteger(argv[i], value))
-    {
-      std::cerr << "Error: Invalid input" << std::endl;
+    if (!parsePositiveInteger(argv[i], value)) {
+      std::cerr << "Error" << std::endl;
       return (1);
     }
 
-    if (std::find(input.begin(), input.end(), value) != input.end())
-    {
-      std::cerr << "Error: Duplicate value" << std::endl;
+    if (std::find(input.begin(), input.end(), value) != input.end()) {
+      std::cerr << "Error" << std::endl;
       return (1);
     }
 
@@ -56,8 +50,7 @@ int main(int argc, char **argv)
 
   std::cout << "Before:";
   i = 0;
-  while (i < input.size())
-  {
+  while (i < input.size()) {
     std::cout << " " << input[i];
     i++;
   }
