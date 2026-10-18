@@ -5,6 +5,7 @@ int main(int argc, char **argv)
 {
 	if (argc != 2)
 	{
+		// This error message is required by the subject example.
 		std::cout << "Error: could not open file." << std::endl;
 		return (1);
 	}
