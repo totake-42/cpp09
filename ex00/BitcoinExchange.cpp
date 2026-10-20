@@ -1,4 +1,5 @@
 #include "BitcoinExchange.hpp"
+#include <cctype>
 #include <cerrno>  // For errno
 #include <cmath>   // For std::isnan and std::isinf
 #include <cstddef> // For std::std::size_t

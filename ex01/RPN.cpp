@@ -1,5 +1,6 @@
 #include "RPN.hpp"
 #include <cctype>
+#include <climits>
 #include <list>
 #include <sstream>
 #include <stack>
@@ -44,19 +45,32 @@ int RPN::calculate(const std::string &expression) const {
     int left = values.top();
     values.pop();
 
-    if (value == '/' && right == 0)
-      throw std::runtime_error("Division by zero");
-
     int result = 0;
 
-    if (value == '+')
+    if (value == '+') {
+      if ((right > 0 && left > INT_MAX - right) ||
+          (right < 0 && left < INT_MIN - right))
+        throw std::overflow_error("Integer overflow");
       result = left + right;
-    else if (value == '-')
+    } else if (value == '-') {
+      if ((right < 0 && left > INT_MAX + right) ||
+          (right > 0 && left < INT_MIN + right))
+        throw std::overflow_error("Integer overflow");
       result = left - right;
-    else if (value == '*')
+    } else if (value == '*') {
+      if ((left > 0 && ((right > 0 && left > INT_MAX / right) ||
+                        (right < 0 && right < INT_MIN / left))) ||
+          (left < 0 && ((right > 0 && left < INT_MIN / right) ||
+                        (right < 0 && right < INT_MAX / left))))
+        throw std::overflow_error("Integer overflow");
       result = left * right;
-    else if (value == '/')
+    } else if (value == '/') {
+      if (right == 0)
+        throw std::runtime_error("Division by zero");
+      if (left == INT_MIN && right == -1)
+        throw std::overflow_error("Integer overflow");
       result = left / right;
+    }
 
     values.push(result);
   }
